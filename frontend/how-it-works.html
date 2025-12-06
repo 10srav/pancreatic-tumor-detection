@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How It Works - Pancreatic Tumor Detection</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+
+<body>
+
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark sticky-top">
+        <div class="container">
+            <a class="navbar-brand" href="index.html">
+                <i class="fas fa-dna me-2"></i>PTDS AI
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item"><a class="nav-link" href="index.html">Home</a></li>
+                    <li class="nav-item"><a class="nav-link" href="upload.html">Upload Scan</a></li>
+                    <li class="nav-item"><a class="nav-link" href="dashboard.html">Dashboard</a></li>
+                    <li class="nav-item"><a class="nav-link active" href="how-it-works.html">How It Works</a></li>
+                    <li class="nav-item"><a class="nav-link" href="about.html">About</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container py-5">
+        <h2 class="text-center mb-5">How It Works</h2>
+
+        <!-- Process Steps -->
+        <div class="row g-4 mb-5">
+            <div class="col-md-12">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center mb-4">
+                            <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-3"
+                                style="width: 50px; height: 50px; font-size: 1.5rem;">1</div>
+                            <h4 class="mb-0">Upload CT Scan Image</h4>
+                        </div>
+                        <p class="ms-5">The user uploads a CT scan image (JPG, PNG, or DICOM format) through the secure
+                            web interface. The system validates the image format and quality before processing.</p>
+
+                        <div class="d-flex align-items-center mb-4 mt-4">
+                            <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-3"
+                                style="width: 50px; height: 50px; font-size: 1.5rem;">2</div>
+                            <h4 class="mb-0">Image Preprocessing</h4>
+                        </div>
+                        <p class="ms-5">The system applies advanced image processing techniques:
+                        <ul>
+                            <li><strong>Noise Reduction:</strong> Gaussian filtering removes artifacts.</li>
+                            <li><strong>Contrast Enhancement:</strong> CLAHE improves visibility of tissue structures.
+                            </li>
+                            <li><strong>Segmentation:</strong> Isolates the pancreatic region from surrounding organs.
+                            </li>
+                        </ul>
+                        </p>
+
+                        <div class="d-flex align-items-center mb-4 mt-4">
+                            <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-3"
+                                style="width: 50px; height: 50px; font-size: 1.5rem;">3</div>
+                            <h4 class="mb-0">Feature Extraction & Classification</h4>
+                        </div>
+                        <p class="ms-5">A Convolutional Neural Network (CNN) analyzes the processed image. It extracts
+                            features like texture, shape, and intensity patterns to classify the image as "Tumorous" or
+                            "Non-Tumorous".</p>
+
+                        <div class="d-flex align-items-center mb-4 mt-4">
+                            <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-3"
+                                style="width: 50px; height: 50px; font-size: 1.5rem;">4</div>
+                            <h4 class="mb-0">Results & Visualization</h4>
+                        </div>
+                        <p class="ms-5">The system displays the final prediction with a confidence score. It also shows
+                            the preprocessed images to help radiologists understand what the AI "saw".</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tech Stack -->
+        <h3 class="text-center mb-4">Technology Stack</h3>
+        <div class="row text-center justify-content-center g-4">
+            <div class="col-md-2 col-4">
+                <span class="badge bg-primary p-3 w-100 fs-6">Python</span>
+            </div>
+            <div class="col-md-2 col-4">
+                <span class="badge bg-warning text-dark p-3 w-100 fs-6">TensorFlow</span>
+            </div>
+            <div class="col-md-2 col-4">
+                <span class="badge bg-info text-dark p-3 w-100 fs-6">OpenCV</span>
+            </div>
+            <div class="col-md-2 col-4">
+                <span class="badge bg-dark p-3 w-100 fs-6">Flask</span>
+            </div>
+            <div class="col-md-2 col-4">
+                <span class="badge bg-success p-3 w-100 fs-6">Bootstrap 5</span>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Footer -->
+    <footer>
+        <div class="container text-center">
+            <h5>Vignan's Institute of Engineering for Women (A)</h5>
+            <p>Department of Computer Science & Engineering</p>
+            <p>&copy; 2025 Pancreatic Tumor Detection System</p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="js/main.js"></script>
+</body>
+
+</html>

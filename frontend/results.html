@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analysis Results - Pancreatic Tumor Detection</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+
+<body>
+
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark sticky-top">
+        <div class="container">
+            <a class="navbar-brand" href="index.html">
+                <i class="fas fa-dna me-2"></i>PTDS AI
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item"><a class="nav-link" href="index.html">Home</a></li>
+                    <li class="nav-item"><a class="nav-link" href="upload.html">Upload Scan</a></li>
+                    <li class="nav-item"><a class="nav-link" href="dashboard.html">Dashboard</a></li>
+                    <li class="nav-item"><a class="nav-link" href="how-it-works.html">How It Works</a></li>
+                    <li class="nav-item"><a class="nav-link" href="about.html">About</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container py-5" id="results-container">
+        <!-- Breadcrumb -->
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="index.html">Home</a></li>
+                <li class="breadcrumb-item"><a href="upload.html">Upload Scan</a></li>
+                <li class="breadcrumb-item active" aria-current="page">Results</li>
+            </ol>
+        </nav>
+
+        <!-- Result Banner -->
+        <div id="result-banner" class="result-banner">
+            <!-- Content injected by JS -->
+        </div>
+
+        <div class="row g-4">
+            <!-- Left Column: Images -->
+            <div class="col-md-8">
+                <div class="card shadow-sm mb-4">
+                    <div class="card-header bg-white">
+                        <h5 class="mb-0">Scan Analysis</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6 text-center">
+                                <h6>Original Image</h6>
+                                <img id="original-image" src="" class="img-fluid rounded border" alt="Original">
+                            </div>
+                            <div class="col-md-6 text-center">
+                                <h6>Processed & Segmented</h6>
+                                <img id="processed-image" src="" class="img-fluid rounded border" alt="Processed">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Preprocessing Stages (Visual) -->
+                <div class="card shadow-sm">
+                    <div class="card-header bg-white">
+                        <h5 class="mb-0">Preprocessing Pipeline</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row text-center">
+                            <div class="col-3">
+                                <small>Input</small>
+                                <div class="bg-light border rounded p-2" style="height: 60px;">
+                                    <i class="fas fa-file-image text-muted fa-2x"></i>
+                                </div>
+                            </div>
+                            <div class="col-3">
+                                <small>Noise Reduction</small>
+                                <div class="bg-light border rounded p-2" style="height: 60px;">
+                                    <i class="fas fa-magic text-primary fa-2x"></i>
+                                </div>
+                            </div>
+                            <div class="col-3">
+                                <small>Enhancement</small>
+                                <div class="bg-light border rounded p-2" style="height: 60px;">
+                                    <i class="fas fa-adjust text-primary fa-2x"></i>
+                                </div>
+                            </div>
+                            <div class="col-3">
+                                <small>Segmentation</small>
+                                <div class="bg-light border rounded p-2" style="height: 60px;">
+                                    <i class="fas fa-crop-alt text-primary fa-2x"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Details -->
+            <div class="col-md-4">
+                <div class="card shadow-sm mb-4">
+                    <div class="card-body text-center">
+                        <h5 class="card-title mb-4">Confidence Score</h5>
+                        <div class="confidence-circle">
+                            <div class="confidence-text" id="confidence-score">0%</div>
+                        </div>
+                        <p class="text-muted mt-3">Probability of prediction accuracy</p>
+                    </div>
+                </div>
+
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title mb-3">Actions</h5>
+                        <div class="d-grid gap-2">
+                            <button class="btn btn-outline-primary" onclick="window.print()">
+                                <i class="fas fa-file-pdf me-2"></i>Download Report
+                            </button>
+                            <a href="upload.html" class="btn btn-primary">
+                                <i class="fas fa-redo me-2"></i>Analyze Another
+                            </a>
+                            <a href="dashboard.html" class="btn btn-secondary">
+                                <i class="fas fa-chart-line me-2"></i>View Dashboard
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer>
+        <div class="container text-center">
+            <h5>Vignan's Institute of Engineering for Women (A)</h5>
+            <p>Department of Computer Science & Engineering</p>
+            <p>&copy; 2025 Pancreatic Tumor Detection System</p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="js/main.js"></script>
+    <script src="js/results.js"></script>
+</body>
+
+</html>
