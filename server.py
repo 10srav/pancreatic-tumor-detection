@@ -1,3 +1,4 @@
+import setup_tf  # Setup TensorFlow path for Windows
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import os
@@ -6,36 +7,54 @@ import numpy as np
 from tensorflow.keras.models import load_model
 import uuid
 import json
+from datetime import datetime
 
 # Configuration
 UPLOAD_FOLDER = 'uploads'
 RESULTS_FOLDER = 'results'
-MODEL_PATH = 'laptop_pancreas_model.h5'
+MODEL_PATH = 'pancreas_model.h5'
+METRICS_PATH = 'results/metrics.json'
+HISTORY_PATH = 'results/prediction_history.json'
 IMG_SIZE = (128, 128)
+
+def apply_clahe(img):
+    """Apply CLAHE for contrast enhancement (matches training preprocessing)."""
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+    return clahe.apply(img)
+
+# Check if model uses RGB (transfer learning) or grayscale
+USE_RGB_MODEL = False  # Set to False for grayscale Custom CNN model
 
 def preprocess_image(filepath):
     """
-    Simple preprocessing for the laptop model:
-    Grayscale -> Resize (128,128) -> Normalize
+    CT scan preprocessing matching the training pipeline.
+    Supports both grayscale CNN and RGB transfer learning models.
     """
     try:
         # Read as Grayscale
         img = cv2.imread(filepath, cv2.IMREAD_GRAYSCALE)
         if img is None:
             return None, None
-            
+
+        # Apply CLAHE for contrast enhancement
+        img = apply_clahe(img)
+
         # Resize
         processed_img = cv2.resize(img, IMG_SIZE)
-        
+
+        # Light Gaussian blur to reduce noise
+        processed_img = cv2.GaussianBlur(processed_img, (3, 3), 0)
+
         # Normalize (0-1)
         normalized_img = processed_img / 255.0
-        
-        # Reshape for model (1, 128, 128, 1)
-        # input_data = normalized_img.reshape(1, 128, 128, 1)
-        
-        # Create a display image (RGB) from the grayscale for the frontend
+
+        # Create display image (RGB) for the frontend
         display_img = cv2.cvtColor(processed_img, cv2.COLOR_GRAY2RGB)
-        
+
+        if USE_RGB_MODEL:
+            # Convert to RGB for transfer learning model (3 channels)
+            normalized_img = np.stack([normalized_img] * 3, axis=-1)
+
         return normalized_img, display_img
     except Exception as e:
         print(f"Error in preprocessing: {e}")
@@ -47,7 +66,7 @@ CORS(app) # Enable CORS for all routes
 # Configuration
 UPLOAD_FOLDER = 'uploads'
 RESULTS_FOLDER = 'results'
-MODEL_PATH = 'laptop_pancreas_model.h5'
+MODEL_PATH = 'pancreas_model.h5'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(RESULTS_FOLDER, exist_ok=True)
 
@@ -59,8 +78,31 @@ except Exception as e:
     print(f"Error loading model: {e}")
     model = None
 
-# Mock Database for Dashboard (In-memory for demo)
-history_db = []
+# Functions to load/save prediction history
+def load_history():
+    if os.path.exists(HISTORY_PATH):
+        try:
+            with open(HISTORY_PATH, 'r') as f:
+                return json.load(f)
+        except:
+            return []
+    return []
+
+def save_history(history):
+    with open(HISTORY_PATH, 'w') as f:
+        json.dump(history, f, indent=2)
+
+def load_metrics():
+    if os.path.exists(METRICS_PATH):
+        try:
+            with open(METRICS_PATH, 'r') as f:
+                return json.load(f)
+        except:
+            return None
+    return None
+
+# Prediction History Database (persisted to file)
+history_db = load_history()
 
 @app.route('/')
 def serve_index():
@@ -94,7 +136,10 @@ def predict():
             
             # Predict
             if model:
-                input_img = processed_img.reshape(1, 128, 128, 1)
+                if USE_RGB_MODEL:
+                    input_img = processed_img.reshape(1, 128, 128, 3)
+                else:
+                    input_img = processed_img.reshape(1, 128, 128, 1)
                 prediction = model.predict(input_img)
                 score = float(prediction[0][0])
                 
@@ -109,7 +154,7 @@ def predict():
                 # Convert RGB back to BGR for OpenCV saving
                 cv2.imwrite(processed_filepath, cv2.cvtColor(display_img, cv2.COLOR_RGB2BGR))
                 
-                # Save to history
+                # Save to history with real timestamp
                 result_data = {
                     'id': str(uuid.uuid4()),
                     'filename': filename,
@@ -117,10 +162,11 @@ def predict():
                     'is_tumor': is_tumor,
                     'confidence': confidence,
                     'label': label,
-                    'timestamp': '2025-12-03' # Mock timestamp
+                    'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 }
                 history_db.append(result_data)
-                
+                save_history(history_db)  # Persist to file
+
                 return jsonify(result_data)
             else:
                 return jsonify({'error': 'Model not loaded'}), 500
@@ -130,25 +176,54 @@ def predict():
 
 @app.route('/metrics', methods=['GET'])
 def get_metrics():
-    # Mock metrics for dashboard (replace with real evaluation results if available)
-    # In a real app, these would be loaded from a file or database
-    return jsonify({
-        'accuracy': 0.987,
-        'precision': 0.965,
-        'recall': 0.978,
-        'f1_score': 0.971,
-        'confusion_matrix': [[45, 2], [3, 50]], # [[TN, FP], [FN, TP]]
-        'history': {
-            'accuracy': [0.6, 0.75, 0.85, 0.92, 0.95, 0.98],
-            'val_accuracy': [0.55, 0.70, 0.82, 0.88, 0.94, 0.97],
-            'loss': [0.8, 0.6, 0.4, 0.3, 0.2, 0.1],
-            'val_loss': [0.85, 0.65, 0.45, 0.35, 0.25, 0.15]
-        },
-        'predictions': {
-            'tumor': len([x for x in history_db if x['is_tumor']]),
-            'normal': len([x for x in history_db if not x['is_tumor']])
+    # Load real metrics from file if available
+    saved_metrics = load_metrics()
+
+    if saved_metrics:
+        # Use saved metrics from training
+        metrics = {
+            'accuracy': saved_metrics.get('accuracy', 0),
+            'precision': saved_metrics.get('precision', 0),
+            'recall': saved_metrics.get('recall', 0),
+            'f1_score': saved_metrics.get('f1_score', 0),
+            'confusion_matrix': saved_metrics.get('confusion_matrix', [[0, 0], [0, 0]]),
+            'history': saved_metrics.get('history', {
+                'accuracy': [],
+                'val_accuracy': [],
+                'loss': [],
+                'val_loss': []
+            }),
+            'predictions': {
+                'tumor': len([x for x in history_db if x['is_tumor']]),
+                'normal': len([x for x in history_db if not x['is_tumor']])
+            }
         }
-    })
+    else:
+        # Default metrics if no saved metrics
+        metrics = {
+            'accuracy': 0,
+            'precision': 0,
+            'recall': 0,
+            'f1_score': 0,
+            'confusion_matrix': [[0, 0], [0, 0]],
+            'history': {
+                'accuracy': [],
+                'val_accuracy': [],
+                'loss': [],
+                'val_loss': []
+            },
+            'predictions': {
+                'tumor': len([x for x in history_db if x['is_tumor']]),
+                'normal': len([x for x in history_db if not x['is_tumor']])
+            }
+        }
+
+    return jsonify(metrics)
+
+@app.route('/history', methods=['GET'])
+def get_history():
+    # Return real prediction history (most recent first)
+    return jsonify(list(reversed(history_db[-50:])))
 
 @app.route('/uploads/<filename>')
 def uploaded_file(filename):

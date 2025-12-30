@@ -6,13 +6,20 @@ document.addEventListener('DOMContentLoaded', function () {
 
 async function fetchMetrics() {
     try {
-        const response = await fetch('http://localhost:5000/metrics');
-        if (!response.ok) throw new Error('Failed to fetch metrics');
+        const [metricsResponse, historyResponse] = await Promise.all([
+            fetch('http://localhost:5000/metrics'),
+            fetch('http://localhost:5000/history')
+        ]);
 
-        const data = await response.json();
-        updateMetrics(data);
-        renderCharts(data);
-        updateHistoryTable(data.predictions); // Using predictions count as mock history for now
+        if (!metricsResponse.ok) throw new Error('Failed to fetch metrics');
+        if (!historyResponse.ok) throw new Error('Failed to fetch history');
+
+        const metricsData = await metricsResponse.json();
+        const historyData = await historyResponse.json();
+
+        updateMetrics(metricsData);
+        renderCharts(metricsData);
+        updateHistoryTable(historyData);
 
     } catch (error) {
         console.error('Error:', error);
@@ -78,27 +85,29 @@ function renderCharts(data) {
     });
 }
 
-function updateHistoryTable(predictions) {
-    // Mock history data since the backend /metrics endpoint doesn't return full history list in this demo
-    // In a real app, we would fetch a list of recent scans
+function updateHistoryTable(historyData) {
     const tbody = document.getElementById('history-table-body');
     tbody.innerHTML = '';
 
-    // Create some dummy rows for demonstration if no real history is passed
-    const dummyData = [
-        { id: 'Scan-001', result: 'Tumor Detected', confidence: '98.5%', date: '2025-12-03' },
-        { id: 'Scan-002', result: 'No Tumor', confidence: '99.1%', date: '2025-12-03' },
-        { id: 'Scan-003', result: 'No Tumor', confidence: '94.2%', date: '2025-12-02' }
-    ];
-
-    dummyData.forEach(row => {
+    if (!historyData || historyData.length === 0) {
         const tr = document.createElement('tr');
-        const isTumor = row.result.includes('Tumor Detected');
+        tr.innerHTML = '<td colspan="4" class="text-center text-muted">No scans yet. Upload an image to get started.</td>';
+        tbody.appendChild(tr);
+        return;
+    }
+
+    historyData.forEach((item, index) => {
+        const tr = document.createElement('tr');
+        const isTumor = item.is_tumor;
+        const scanId = `Scan-${String(historyData.length - index).padStart(3, '0')}`;
+        const confidence = (item.confidence * 100).toFixed(1) + '%';
+        const date = item.timestamp.split(' ')[0]; // Get date part only
+
         tr.innerHTML = `
-            <td>${row.id}</td>
-            <td><span class="badge ${isTumor ? 'bg-danger' : 'bg-success'}">${row.result}</span></td>
-            <td>${row.confidence}</td>
-            <td>${row.date}</td>
+            <td>${scanId}</td>
+            <td><span class="badge ${isTumor ? 'bg-danger' : 'bg-success'}">${item.label}</span></td>
+            <td>${confidence}</td>
+            <td>${date}</td>
         `;
         tbody.appendChild(tr);
     });

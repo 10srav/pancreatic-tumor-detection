@@ -1,3 +1,4 @@
+import setup_tf  # Setup TensorFlow path for Windows
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras.models import load_model
@@ -8,8 +9,14 @@ import cv2
 import os
 
 # Configuration
-MODEL_PATH = 'laptop_pancreas_model.h5'
+MODEL_PATH = 'pancreas_model.h5'
 IMG_SIZE = (128, 128)
+USE_RGB_MODEL = False  # Set to False for grayscale Custom CNN model
+
+def apply_clahe(img):
+    """Apply CLAHE for contrast enhancement (matches training preprocessing)."""
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+    return clahe.apply(img)
 
 def predict_single_image(image_path):
     """
@@ -20,22 +27,30 @@ def predict_single_image(image_path):
         return
 
     model = load_model(MODEL_PATH)
-    
+
     try:
-        # Read and Preprocess
+        # Read and Preprocess (matching training pipeline)
         img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
         if img is None:
             print("Could not read image.")
             return
-            
+
         img_resized = cv2.resize(img, IMG_SIZE)
-        img_normalized = img_resized / 255.0
-        img_reshaped = img_normalized.reshape(1, 128, 128, 1)
-        
+        img_clahe = apply_clahe(img_resized)
+        img_blurred = cv2.GaussianBlur(img_clahe, (3, 3), 0)
+        img_normalized = img_blurred / 255.0
+
+        if USE_RGB_MODEL:
+            # Convert to RGB for transfer learning model
+            img_rgb = np.stack([img_normalized] * 3, axis=-1)
+            img_reshaped = img_rgb.reshape(1, 128, 128, 3)
+        else:
+            img_reshaped = img_normalized.reshape(1, 128, 128, 1)
+
         # Predict
         prediction = model.predict(img_reshaped)
         score = prediction[0][0]
-        
+
         print("\n--- Single Image Prediction ---")
         print(f"Image: {image_path}")
         if score > 0.5:
@@ -43,22 +58,29 @@ def predict_single_image(image_path):
         else:
             print(f"Result: No Tumor (Confidence: {(1-score):.2%})")
         print("-------------------------------\n")
-        
+
     except Exception as e:
         print(f"Error: {e}")
 
 def evaluate_full_test_set():
-    if not os.path.exists('X_test.npy'):
+    if not os.path.exists('results/X_test.npy'):
         print("Test data not found!")
         return
 
     print("Loading test data...")
-    X_test = np.load('X_test.npy')
-    y_test = np.load('y_test.npy')
-    
+    X_test = np.load('results/X_test.npy')
+    y_test = np.load('results/y_test.npy')
+
+    # Convert to RGB if using transfer learning model
+    if USE_RGB_MODEL:
+        print("Converting to RGB for transfer learning model...")
+        X_test = np.repeat(X_test, 3, axis=-1)
+
+    print(f"Test data shape: {X_test.shape}")
+
     print("Loading model...")
     model = load_model(MODEL_PATH)
-    
+
     print("Predicting...")
     y_pred_prob = model.predict(X_test)
     y_pred = (y_pred_prob > 0.5).astype(int).flatten()
@@ -72,7 +94,7 @@ def evaluate_full_test_set():
     plt.figure(figsize=(6, 5))
     sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=['Normal', 'Tumor'], yticklabels=['Normal', 'Tumor'])
     plt.title('Confusion Matrix')
-    plt.savefig('laptop_confusion_matrix.png')
+    plt.savefig('results/confusion_matrix.png')
     
     # ROC Curve
     fpr, tpr, thresholds = roc_curve(y_test, y_pred_prob)
@@ -85,7 +107,7 @@ def evaluate_full_test_set():
     plt.ylabel('True Positive Rate')
     plt.title('ROC Curve')
     plt.legend(loc="lower right")
-    plt.savefig('laptop_roc_curve.png')
+    plt.savefig('results/roc_curve.png')
     
     print("Evaluation complete. Results saved.")
 

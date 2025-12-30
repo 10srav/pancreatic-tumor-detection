@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+
+# Virtual environments
+venv/
+env/
+.env
+
+# Model files (large)
+*.h5
+*.keras
+*.pb
+*.onnx
+
+# Dataset and downloads (large)
+dataset/
+downloads/
+uploads/
+
+# Results (generated)
+results/*.npy
+results/*.png
+results/prediction_history.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
