@@ -4,26 +4,65 @@ from flask_cors import CORS
 import os
 import cv2
 import numpy as np
-from tensorflow.keras.models import load_model
 import uuid
 import json
 from datetime import datetime
 
-# Configuration
-UPLOAD_FOLDER = 'uploads'
-RESULTS_FOLDER = 'results'
-MODEL_PATH = 'pancreas_model.h5'
-METRICS_PATH = 'results/metrics.json'
-HISTORY_PATH = 'results/prediction_history.json'
-IMG_SIZE = (128, 128)
+try:
+    from tensorflow.keras.models import load_model
+    TENSORFLOW_AVAILABLE = True
+    TF_IMPORT_ERROR = None
+except Exception as e:
+    load_model = None
+    TENSORFLOW_AVAILABLE = False
+    TF_IMPORT_ERROR = str(e)
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+UPLOAD_FOLDER = os.path.join(BASE_DIR, 'uploads')
+RESULTS_FOLDER = os.path.join(BASE_DIR, 'results')
+METRICS_PATH = os.path.join(RESULTS_FOLDER, 'metrics.json')
+HISTORY_PATH = os.path.join(RESULTS_FOLDER, 'prediction_history.json')
+ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png'}
+DEFAULT_IMG_SIZE = (128, 128)
+
+MODEL_CANDIDATES = [
+    os.environ.get('MODEL_PATH'),
+    os.path.join(BASE_DIR, 'pancreas_model.h5'),
+    os.path.join(BASE_DIR, 'pancreas_custom_cnn.h5'),
+    os.path.join(BASE_DIR, 'pancreas_vgg16.h5'),
+]
+MODEL_PATH = next((p for p in MODEL_CANDIDATES if p and os.path.exists(p)), os.path.join(BASE_DIR, 'pancreas_model.h5'))
+
+IMG_SIZE = DEFAULT_IMG_SIZE
+USE_RGB_MODEL = False  # Auto-inferred from model input shape when possible
+MODEL_ERROR = None
+
 
 def apply_clahe(img):
     """Apply CLAHE for contrast enhancement (matches training preprocessing)."""
     clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
     return clahe.apply(img)
 
-# Check if model uses RGB (transfer learning) or grayscale
-USE_RGB_MODEL = False  # Set to False for grayscale Custom CNN model
+
+def infer_model_settings(model):
+    """Infer input size and channels from the loaded model."""
+    global IMG_SIZE, USE_RGB_MODEL
+    try:
+        input_shape = model.input_shape
+        if isinstance(input_shape, list):
+            input_shape = input_shape[0]
+        if input_shape and len(input_shape) == 4:
+            _, h, w, c = input_shape
+            if h and w:
+                IMG_SIZE = (int(w), int(h))
+            if c == 3:
+                USE_RGB_MODEL = True
+            elif c == 1:
+                USE_RGB_MODEL = False
+        print(f"Model input shape: {input_shape}; IMG_SIZE={IMG_SIZE}; USE_RGB_MODEL={USE_RGB_MODEL}")
+    except Exception as e:
+        print(f"Warning: could not infer model input shape: {e}. Using defaults.")
+
 
 def preprocess_image(filepath):
     """
@@ -60,23 +99,28 @@ def preprocess_image(filepath):
         print(f"Error in preprocessing: {e}")
         return None, None
 
-app = Flask(__name__, static_folder='frontend')
-CORS(app) # Enable CORS for all routes
 
-# Configuration
-UPLOAD_FOLDER = 'uploads'
-RESULTS_FOLDER = 'results'
-MODEL_PATH = 'pancreas_model.h5'
+app = Flask(__name__, static_folder=os.path.join(BASE_DIR, 'frontend'))
+CORS(app)  # Enable CORS for all routes
+
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(RESULTS_FOLDER, exist_ok=True)
 
 # Load Model
-try:
-    model = load_model(MODEL_PATH)
-    print("Model loaded successfully.")
-except Exception as e:
-    print(f"Error loading model: {e}")
-    model = None
+model = None
+if not TENSORFLOW_AVAILABLE:
+    MODEL_ERROR = f"TensorFlow import failed: {TF_IMPORT_ERROR}"
+    print(MODEL_ERROR)
+else:
+    try:
+        print(f"Loading model from: {MODEL_PATH}")
+        model = load_model(MODEL_PATH)
+        infer_model_settings(model)
+        print("Model loaded successfully.")
+    except Exception as e:
+        MODEL_ERROR = str(e)
+        print(f"Error loading model: {MODEL_ERROR}")
+
 
 # Functions to load/save prediction history
 def load_history():
@@ -88,9 +132,11 @@ def load_history():
             return []
     return []
 
+
 def save_history(history):
     with open(HISTORY_PATH, 'w') as f:
         json.dump(history, f, indent=2)
+
 
 def load_metrics():
     if os.path.exists(METRICS_PATH):
@@ -101,59 +147,79 @@ def load_metrics():
             return None
     return None
 
+
 # Prediction History Database (persisted to file)
 history_db = load_history()
+
 
 @app.route('/')
 def serve_index():
     return send_from_directory(app.static_folder, 'index.html')
 
+
 @app.route('/<path:path>')
 def serve_static(path):
     return send_from_directory(app.static_folder, path)
+
+
+@app.route('/health', methods=['GET'])
+def health():
+    return jsonify({
+        'tensorflow_available': TENSORFLOW_AVAILABLE,
+        'model_loaded': model is not None,
+        'model_path': MODEL_PATH,
+        'model_error': MODEL_ERROR,
+        'img_size': IMG_SIZE,
+        'use_rgb_model': USE_RGB_MODEL,
+    })
+
 
 @app.route('/predict', methods=['POST'])
 def predict():
     if 'file' not in request.files:
         return jsonify({'error': 'No file part'}), 400
-    
+
     file = request.files['file']
     if file.filename == '':
         return jsonify({'error': 'No selected file'}), 400
-    
+
+    ext = os.path.splitext(file.filename)[1].lower()
+    if ext and ext not in ALLOWED_EXTENSIONS:
+        return jsonify({'error': 'Invalid file type. Please upload a JPG or PNG image.'}), 400
+
     if file:
         # Save uploaded file
         filename = str(uuid.uuid4()) + "_" + file.filename
         filepath = os.path.join(UPLOAD_FOLDER, filename)
         file.save(filepath)
-        
+
         try:
             # Preprocess
             processed_img, display_img = preprocess_image(filepath)
-            
+
             if processed_img is None:
                 return jsonify({'error': 'Error processing image'}), 500
-            
+
             # Predict
             if model:
                 if USE_RGB_MODEL:
-                    input_img = processed_img.reshape(1, 128, 128, 3)
+                    input_img = processed_img.reshape(1, IMG_SIZE[1], IMG_SIZE[0], 3)
                 else:
-                    input_img = processed_img.reshape(1, 128, 128, 1)
+                    input_img = processed_img.reshape(1, IMG_SIZE[1], IMG_SIZE[0], 1)
                 prediction = model.predict(input_img)
                 score = float(prediction[0][0])
-                
+
                 # Determine result
                 is_tumor = score > 0.5
                 confidence = score if is_tumor else 1 - score
                 label = "Tumor Detected" if is_tumor else "No Tumor Detected"
-                
+
                 # Save processed image for display
                 processed_filename = "proc_" + filename
                 processed_filepath = os.path.join(RESULTS_FOLDER, processed_filename)
                 # Convert RGB back to BGR for OpenCV saving
                 cv2.imwrite(processed_filepath, cv2.cvtColor(display_img, cv2.COLOR_RGB2BGR))
-                
+
                 # Save to history with real timestamp
                 result_data = {
                     'id': str(uuid.uuid4()),
@@ -169,10 +235,12 @@ def predict():
 
                 return jsonify(result_data)
             else:
-                return jsonify({'error': 'Model not loaded'}), 500
-                
+                detail = MODEL_ERROR or f"Model not loaded. Checked: {MODEL_PATH}"
+                return jsonify({'error': detail}), 500
+
         except Exception as e:
             return jsonify({'error': str(e)}), 500
+
 
 @app.route('/metrics', methods=['GET'])
 def get_metrics():
@@ -220,18 +288,22 @@ def get_metrics():
 
     return jsonify(metrics)
 
+
 @app.route('/history', methods=['GET'])
 def get_history():
     # Return real prediction history (most recent first)
     return jsonify(list(reversed(history_db[-50:])))
 
+
 @app.route('/uploads/<filename>')
 def uploaded_file(filename):
     return send_from_directory(UPLOAD_FOLDER, filename)
+
 
 @app.route('/results/<filename>')
 def result_file(filename):
     return send_from_directory(RESULTS_FOLDER, filename)
 
+
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    app.run(debug=True, host='0.0.0.0', port=5000)

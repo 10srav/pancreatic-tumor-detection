@@ -85,7 +85,14 @@ def main():
 
     if not model_exists or force_retrain:
         print("\n[INFO] Training model with data...")
-        run_step("python 2_train_model.py", "Training CNN Model")
+        model_choice = os.environ.get('MODEL', 'custom').lower()
+        if model_choice == 'vgg16':
+            train_cmd = "python train_transfer_fixed.py"
+            train_label = "Training VGG16 Transfer Learning Model"
+        else:
+            train_cmd = "python train_custom_cnn.py"
+            train_label = "Training Custom CNN Model"
+        run_step(train_cmd, train_label)
     else:
         print("\n[INFO] Model already exists. Use RETRAIN=1 to force retraining.")
 

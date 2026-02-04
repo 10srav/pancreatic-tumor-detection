@@ -9,9 +9,35 @@ import cv2
 import os
 
 # Configuration
-MODEL_PATH = 'pancreas_model.h5'
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MODEL_CANDIDATES = [
+    os.environ.get('MODEL_PATH'),
+    os.path.join(BASE_DIR, 'pancreas_model.h5'),
+    os.path.join(BASE_DIR, 'pancreas_custom_cnn.h5'),
+    os.path.join(BASE_DIR, 'pancreas_vgg16.h5'),
+]
+
 IMG_SIZE = (128, 128)
-USE_RGB_MODEL = False  # Set to False for grayscale Custom CNN model
+USE_RGB_MODEL = False  # Auto-inferred from model input shape when possible
+
+
+def infer_model_settings(model):
+    global IMG_SIZE, USE_RGB_MODEL
+    try:
+        input_shape = model.input_shape
+        if isinstance(input_shape, list):
+            input_shape = input_shape[0]
+        if input_shape and len(input_shape) == 4:
+            _, h, w, c = input_shape
+            if h and w:
+                IMG_SIZE = (int(w), int(h))
+            if c == 3:
+                USE_RGB_MODEL = True
+            elif c == 1:
+                USE_RGB_MODEL = False
+    except Exception:
+        pass
+
 
 def apply_clahe(img):
     """Apply CLAHE for contrast enhancement (matches training preprocessing)."""
@@ -27,6 +53,7 @@ def predict_single_image(image_path):
         return
 
     model = load_model(MODEL_PATH)
+    infer_model_settings(model)
 
     try:
         # Read and Preprocess (matching training pipeline)
@@ -80,6 +107,7 @@ def evaluate_full_test_set():
 
     print("Loading model...")
     model = load_model(MODEL_PATH)
+    infer_model_settings(model)
 
     print("Predicting...")
     y_pred_prob = model.predict(X_test)

@@ -123,6 +123,13 @@ def save_metrics(model, X_test, y_test, history, model_name):
     with open(metrics_file, 'w') as f:
         json.dump(metrics, f, indent=2)
 
+    # Also write the default metrics file for the dashboard
+    try:
+        with open('results/metrics.json', 'w') as f:
+            json.dump(metrics, f, indent=2)
+    except Exception as e:
+        print(f"Warning: could not write results/metrics.json: {e}")
+
     print(f"\nMetrics saved to {metrics_file}")
     print(f"  Accuracy:  {accuracy*100:.2f}%")
     print(f"  Precision: {precision*100:.2f}%")
@@ -217,6 +224,13 @@ def train():
     if os.path.exists('pancreas_custom_cnn.h5'):
         model = tf.keras.models.load_model('pancreas_custom_cnn.h5')
         print("\nLoaded best model from checkpoint.")
+
+    # Export unified model name for the web app
+    try:
+        model.save('pancreas_model.h5')
+        print("Model exported as: pancreas_model.h5")
+    except Exception as e:
+        print(f"Warning: failed to export pancreas_model.h5: {e}")
 
     # Save metrics
     metrics = save_metrics(model, X_test, y_test, history, 'custom_cnn')

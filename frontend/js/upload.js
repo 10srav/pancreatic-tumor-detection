@@ -7,8 +7,62 @@ const imagePreview = document.getElementById('image-preview');
 const clearBtn = document.getElementById('clear-btn');
 const analyzeBtn = document.getElementById('analyze-btn');
 const loadingSpinner = document.getElementById('loading-spinner');
+const diagnosticsPanel = document.getElementById('diagnostics-panel');
+const diagnosticsMessage = document.getElementById('diagnostics-message');
+const diagnosticsCopyBtn = document.getElementById('diagnostics-copy-btn');
 
 let selectedFile = null;
+let diagnosticsShown = false;
+
+function clearDiagnostics() {
+    diagnosticsShown = false;
+    if (!diagnosticsPanel || !diagnosticsMessage) return;
+    diagnosticsMessage.textContent = '';
+    diagnosticsPanel.style.display = 'none';
+}
+
+function showDiagnostics(message, details) {
+    if (!diagnosticsPanel || !diagnosticsMessage) return;
+    diagnosticsShown = true;
+    const lines = [];
+    if (message) lines.push(message);
+    if (details) lines.push(details);
+    diagnosticsMessage.textContent = lines.join('\n');
+    diagnosticsPanel.style.display = 'block';
+}
+
+async function copyToClipboard(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        return navigator.clipboard.writeText(text);
+    }
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.setAttribute('readonly', '');
+    textarea.style.position = 'absolute';
+    textarea.style.left = '-9999px';
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textarea);
+}
+
+if (diagnosticsCopyBtn) {
+    diagnosticsCopyBtn.addEventListener('click', async function () {
+        if (!diagnosticsMessage) return;
+        const text = diagnosticsMessage.textContent || '';
+        if (!text) return;
+        try {
+            await copyToClipboard(text);
+            const original = diagnosticsCopyBtn.textContent;
+            diagnosticsCopyBtn.textContent = 'Copied';
+            setTimeout(() => {
+                diagnosticsCopyBtn.textContent = original;
+            }, 1500);
+        } catch (e) {
+            // If copy fails, do nothing.
+        }
+    });
+}
 
 // Drag and Drop Events
 ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
@@ -86,11 +140,14 @@ clearBtn.addEventListener('click', function () {
     previewSection.style.display = 'none';
     dropZone.style.display = 'block';
     analyzeBtn.disabled = true;
+    clearDiagnostics();
 });
 
 // Analyze Button Click
 analyzeBtn.addEventListener('click', async function () {
     if (!selectedFile) return;
+
+    clearDiagnostics();
 
     // Show Loading
     loadingSpinner.style.display = 'block';
@@ -106,11 +163,25 @@ analyzeBtn.addEventListener('click', async function () {
             body: formData
         });
 
-        if (!response.ok) {
-            throw new Error('Analysis failed');
+        let result = null;
+        try {
+            result = await response.json();
+        } catch (e) {
+            result = null;
         }
 
-        const result = await response.json();
+        if (!response.ok) {
+            const message = result && result.error ? result.error : `Analysis failed (HTTP ${response.status})`;
+            const details = [];
+            details.push(`Status: ${response.status} ${response.statusText}`);
+            if (result) {
+                details.push(`Body: ${JSON.stringify(result, null, 2)}`);
+            } else {
+                details.push('Body: (no JSON returned)');
+            }
+            showDiagnostics(message, details.join('\n'));
+            throw new Error(message);
+        }
 
         // Save result to local storage to pass to results page
         localStorage.setItem('analysisResult', JSON.stringify(result));
@@ -120,7 +191,12 @@ analyzeBtn.addEventListener('click', async function () {
 
     } catch (error) {
         console.error('Error:', error);
-        alert('An error occurred during analysis. Please try again.');
+        if (!diagnosticsShown) {
+            const message = error && error.message ? error.message : 'An error occurred during analysis.';
+            const details = 'Check that the Flask server is running at http://localhost:5000';
+            showDiagnostics(message, details);
+        }
+        alert(error.message || 'An error occurred during analysis. Please try again.');
         loadingSpinner.style.display = 'none';
         analyzeBtn.disabled = false;
         clearBtn.disabled = false;
