@@ -81,7 +81,7 @@ def build_vgg16_model():
     model = models.Model(inputs, outputs)
 
     model.compile(
-        optimizer=tf.keras.optimizers.Adam(learning_rate=0.001),
+        optimizer=tf.keras.optimizers.Adam(learning_rate=0.0001),
         loss='binary_crossentropy',
         metrics=['accuracy']
     )

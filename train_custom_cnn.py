@@ -20,14 +20,14 @@ EPOCHS = 100
 def load_data():
     """Load grayscale training data."""
     print("Loading data...")
-    X_train = np.load('results/X_train.npy')
-    y_train = np.load('results/y_train.npy')
-    X_test = np.load('results/X_test.npy')
-    y_test = np.load('results/y_test.npy')
+    X_train = np.load('results/X_train.npy').astype(np.float32)
+    y_train = np.load('results/y_train.npy').astype(np.float32)
+    X_test = np.load('results/X_test.npy').astype(np.float32)
+    y_test = np.load('results/y_test.npy').astype(np.float32)
 
     print(f"Training samples: {len(X_train)}")
     print(f"Test samples: {len(X_test)}")
-    print(f"Input shape: {X_train.shape}")
+    print(f"Input shape: {X_train.shape}, dtype: {X_train.dtype}")
 
     return X_train, y_train, X_test, y_test
 
@@ -38,53 +38,34 @@ def build_custom_cnn():
         layers.Input(shape=(128, 128, 1)),
 
         # Block 1
-        layers.Conv2D(32, (3, 3), padding='same'),
+        layers.Conv2D(16, (3, 3), activation='relu', padding='same'),
         layers.BatchNormalization(),
-        layers.Activation('relu'),
-        layers.Conv2D(32, (3, 3), padding='same'),
-        layers.BatchNormalization(),
-        layers.Activation('relu'),
         layers.MaxPooling2D((2, 2)),
-        layers.Dropout(0.25),
+        layers.Dropout(0.2),
 
         # Block 2
-        layers.Conv2D(64, (3, 3), padding='same'),
+        layers.Conv2D(32, (3, 3), activation='relu', padding='same'),
         layers.BatchNormalization(),
-        layers.Activation('relu'),
-        layers.Conv2D(64, (3, 3), padding='same'),
-        layers.BatchNormalization(),
-        layers.Activation('relu'),
         layers.MaxPooling2D((2, 2)),
-        layers.Dropout(0.25),
+        layers.Dropout(0.2),
 
         # Block 3
-        layers.Conv2D(128, (3, 3), padding='same'),
+        layers.Conv2D(64, (3, 3), activation='relu', padding='same'),
         layers.BatchNormalization(),
-        layers.Activation('relu'),
-        layers.Conv2D(128, (3, 3), padding='same'),
-        layers.BatchNormalization(),
-        layers.Activation('relu'),
         layers.MaxPooling2D((2, 2)),
-        layers.Dropout(0.25),
+        layers.Dropout(0.2),
 
         # Dense layers
-        layers.Flatten(),
-        layers.Dense(256),
-        layers.BatchNormalization(),
-        layers.Activation('relu'),
-        layers.Dropout(0.5),
-
-        layers.Dense(128),
-        layers.BatchNormalization(),
-        layers.Activation('relu'),
-        layers.Dropout(0.3),
+        layers.GlobalAveragePooling2D(),
+        layers.Dense(64, activation='relu'),
+        layers.Dropout(0.4),
 
         # Output
         layers.Dense(1, activation='sigmoid')
     ])
 
     model.compile(
-        optimizer=tf.keras.optimizers.Adam(learning_rate=0.001),
+        optimizer=tf.keras.optimizers.Adam(learning_rate=0.0005),
         loss='binary_crossentropy',
         metrics=['accuracy']
     )
@@ -158,15 +139,14 @@ def train():
     class_weight = {0: weight_for_0, 1: weight_for_1}
     print(f"\nClass weights: Normal={weight_for_0:.2f}, Tumor={weight_for_1:.2f}")
 
-    # Data augmentation
+    # Data augmentation (no brightness changes - intensity is a key feature)
     datagen = ImageDataGenerator(
-        rotation_range=20,
-        width_shift_range=0.15,
-        height_shift_range=0.15,
-        zoom_range=0.2,
+        rotation_range=15,
+        width_shift_range=0.1,
+        height_shift_range=0.1,
+        zoom_range=0.1,
         horizontal_flip=True,
         vertical_flip=False,
-        brightness_range=[0.8, 1.2],
         fill_mode='nearest'
     )
 
@@ -187,7 +167,7 @@ def train():
     reduce_lr = callbacks.ReduceLROnPlateau(
         monitor='val_loss',
         factor=0.5,
-        patience=5,
+        patience=7,
         min_lr=1e-7,
         verbose=1
     )
