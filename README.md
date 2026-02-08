@@ -13,10 +13,10 @@ An automated system to detect pancreatic tumors from CT scan images using Deep L
 
 | Metric | Value |
 |--------|-------|
-| Accuracy | 72.44% |
-| Precision | 66.27% |
-| Recall | 98.69% |
-| F1 Score | 79.32% |
+| Accuracy | 95.76% |
+| Precision | 100.00% |
+| Recall | 92.16% |
+| F1 Score | 95.92% |
 
 ## Project Structure
 
@@ -89,10 +89,11 @@ Open http://localhost:5000 in your browser.
 ## Technical Details
 
 - **Input**: 128x128 grayscale images
-- **Architecture**: 6-layer CNN with BatchNormalization and Dropout
+- **Architecture**: 3-block CNN with BatchNormalization, GlobalAveragePooling, and Dropout
 - **Loss**: Binary Crossentropy
-- **Optimizer**: Adam (lr=0.001)
-- **Data Augmentation**: Rotation, zoom, flip, brightness adjustment
+- **Optimizer**: Adam (lr=0.0005)
+- **Data Augmentation**: Rotation, shift, zoom, horizontal flip
+- **GPU Support**: Configured for NVIDIA RTX 2050 (requires tensorflow[and-cuda])
 
 ## Dataset
 
